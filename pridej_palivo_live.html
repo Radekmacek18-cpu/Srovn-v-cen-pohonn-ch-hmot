@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PŘIDEJ PALIVO – srovnávač cen paliva</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f3f6f8;color:#17202a}
+header{background:#0b6b45;color:#fff;padding:28px 18px;text-align:center}
+header h1{margin:0;font-size:34px}header p{margin:8px 0 0}
+main{max-width:900px;margin:25px auto;padding:0 16px}.card{background:#fff;border-radius:18px;padding:22px;box-shadow:0 5px 20px #00000012;margin-bottom:18px}
+h2{margin-top:0}.search{display:grid;grid-template-columns:1fr 180px 140px;gap:10px}
+input,select,button{padding:14px;border:1px solid #ccd5d9;border-radius:10px;font-size:16px}
+button{background:#0b6b45;color:#fff;border:0;font-weight:bold;cursor:pointer}.button2{background:#315b72}
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.stat{background:#eef7f2;border-radius:14px;padding:16px;text-align:center}.stat b{display:block;font-size:25px;color:#0b6b45}.small{color:#68747c;font-size:13px}
+.station{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #e5e9eb;padding:16px 0}.station:first-child{border-top:0}
+.price{font-size:23px;font-weight:bold;color:#0b6b45}.empty{text-align:center;padding:25px;color:#68747c}.notice{background:#fff7df;padding:14px;border-radius:12px}
+@media(max-width:700px){.search,.statgrid{grid-template-columns:1fr}.station{gap:12px;align-items:flex-start}}
+</style>
+</head>
+<body>
+<header><h1>⛽ PŘIDEJ PALIVO</h1><p>Srovnávač cen paliva</p></header>
+<main>
+<section class="card">
+<h2>Najdi palivo</h2>
+<div class="search">
+<input id="place" placeholder="Město nebo PSČ" value="Lanškroun">
+<select id="fuel"><option value="sp95">Benzín 95</option><option value="diesel">Nafta</option><option value="gpl">LPG</option></select>
+<button onclick="searchPlace()">Hledat</button>
+</div>
+<p class="small">Pro přesné ceny konkrétních pump je potřeba zdroj staničních cen. Níže zatím zobrazujeme živý český průměr.</p>
+</section>
+
+<section class="card">
+<h2>🇨🇿 Aktuální český průměr</h2>
+<div id="stats" class="statgrid"><div class="empty">Načítám data…</div></div>
+<p id="updated" class="small"></p>
+</section>
+
+<section class="card">
+<h2>Čerpací stanice v okolí</h2>
+<div id="results" class="empty">Zadej město nebo použij výchozí Lanškroun.</div>
+</section>
+
+<section class="card">
+<div class="notice"><b>Data:</b> národní průměr paliv je načítán z veřejného API fuel-prices.eu. Jeho česká část vychází z týdenních dat ČSÚ. Cena u konkrétní pumpy se může lišit.</div>
+</section>
+</main>
+
+<script>
+let cz=null;
+async function loadPrices(){
+ try{
+  const r=await fetch('https://www.fuel-prices.eu/live/api.php?action=summary');
+  const j=await r.json(); cz=j.data.countries.find(x=>x.country_code==='CZ');
+  const f=cz.fuels;
+  const labels={sp95:'Benzín 95',diesel:'Nafta',gpl:'LPG'};
+  document.getElementById('stats').innerHTML=['sp95','diesel','gpl'].map(k=>{
+   const v=f[k]; return `<div class="stat"><span>${labels[k]}</span><b>${v.nativePrice!==undefined?v.nativePrice.toFixed(2):toCzk(v.avg)} Kč/l</b><span class="small">český průměr</span></div>`;
+  }).join('');
+  document.getElementById('updated').textContent='Poslední dostupná aktualizace zdroje: '+cz.last_fetched+' UTC';
+ }catch(e){document.getElementById('stats').innerHTML='<div class="empty">Data se nepodařilo načíst.</div>'}
+}
+function toCzk(eur){return (eur*cz.fx.czk_per_eur).toFixed(2)}
+async function searchPlace(){
+ const q=document.getElementById('place').value.trim()||'Lanškroun';
+ const box=document.getElementById('results'); box.innerHTML='<div class="empty">Hledám čerpací stanice…</div>';
+ try{
+  const geo=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&country=Czechia&q='+encodeURIComponent(q),{headers:{'Accept-Language':'cs'}});
+  const g=(await geo.json())[0]; if(!g) throw new Error('Místo nenalezeno');
+  const query=`[out:json][timeout:15];node["amenity"="fuel"](around:10000,${g.lat},${g.lon});out tags center;`;
+  const r=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(query));
+  const j=await r.json();
+  const stations=j.elements.map(x=>({name:x.tags?.name||'Čerpací stanice',brand:x.tags?.brand||'',lat:x.lat,lon:x.lon}))
+   .map(x=>({...x,d:dist(+g.lat,+g.lon,x.lat,x.lon)})).sort((a,b)=>a.d-b.d).slice(0,20);
+  if(!stations.length){box.innerHTML='<div class="empty">V okolí nebyla nalezena čerpací stanice.</div>';return}
+  box.innerHTML=stations.map(x=>`<div class="station"><div><b>${esc(x.name)}</b><div class="small">${esc(x.brand)}${x.brand?' · ':''}${x.d.toFixed(1)} km od ${esc(q)}</div></div><div class="price">—</div></div>`).join('');
+ }catch(e){box.innerHTML='<div class="empty">Stanice se nepodařilo načíst. Zkus to prosím znovu.</div>'}
+}
+function dist(a,b,c,d){const R=6371,p=Math.PI/180;const x=(c-a)*p,y=(d-b)*p;const z=Math.sin(x/2)**2+Math.cos(a*p)*Math.cos(c*p)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.sqrt(z))}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+loadPrices(); searchPlace();
+</script>
+</body></html>
