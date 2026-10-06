@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PŘIDEJ PALIVO – srovnávač cen paliva</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f3f6f8;color:#17202a}
+header{background:#0b6b45;color:#fff;padding:28px 18px;text-align:center}
+header h1{margin:0;font-size:34px}header p{margin:8px 0 0}
+main{max-width:900px;margin:25px auto;padding:0 16px}
+.card{background:#fff;border-radius:18px;padding:22px;box-shadow:0 5px 20px #00000012;margin-bottom:18px}
+h2{margin-top:0}.search{display:grid;grid-template-columns:1fr 180px 140px;gap:10px}
+input,select,button{padding:14px;border:1px solid #ccd5d9;border-radius:10px;font-size:16px}
+button{background:#0b6b45;color:#fff;border:0;font-weight:bold;cursor:pointer}
+button:hover{background:#095638}
+.station{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #e5e9eb;padding:16px 0}
+.station:first-child{border-top:0}.price{font-size:24px;font-weight:bold;color:#0b6b45}
+.small{color:#68747c;font-size:14px}.empty{text-align:center;padding:25px;color:#68747c}
+@media(max-width:700px){.search{grid-template-columns:1fr}.station{gap:12px;align-items:flex-start}.price{font-size:20px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>⛽ PŘIDEJ PALIVO</h1>
+  <p>Srovnávač cen paliva ve tvém okolí</p>
+</header>
+<main>
+  <section class="card">
+    <h2>Najdi nejlevnější palivo</h2>
+    <div class="search">
+      <input id="place" placeholder="Město nebo PSČ" value="Lanškroun">
+      <select id="fuel">
+        <option>Benzín 95</option>
+        <option>Nafta</option>
+        <option>Prémiový benzín</option>
+        <option>Prémiová nafta</option>
+        <option>LPG</option>
+      </select>
+      <button onclick="search()">Hledat</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Výsledky</h2>
+    <div id="results" class="empty">Zadej místo a klikni na „Hledat“.</div>
+  </section>
+
+  <section class="card">
+    <h2>Jak PŘIDEJ PALIVO funguje?</h2>
+    <p>Vyber palivo a místo. Srovnávač následně zobrazí ceny čerpacích stanic od nejlevnější.</p>
+    <p class="small">Toto je první prototyp. Ceny jsou zatím ukázkové; další krok je napojení skutečných cen a databáze čerpacích stanic.</p>
+  </section>
+</main>
+<script>
+function search(){
+  const place=document.getElementById('place').value.trim()||'zadané místo';
+  const fuel=document.getElementById('fuel').value;
+  const demo=[
+    ['Čerpací stanice A','34,90 Kč/l','1,2 km'],
+    ['Čerpací stanice B','35,50 Kč/l','2,4 km'],
+    ['Čerpací stanice C','36,20 Kč/l','3,1 km']
+  ];
+  document.getElementById('results').innerHTML=
+    '<p><b>'+fuel+'</b> – '+place+'</p>'+
+    demo.map(x=>'<div class="station"><div><b>'+x[0]+'</b><div class="small">'+x[2]+' od hledaného místa</div></div><div class="price">'+x[1]+'</div></div>').join('');
+}
+</script>
+</body>
+</html>
